@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>癒し待夢 給料計算（井川バージョン）</title>
+
+<style>
+:root{
+  --pink:#F6A5C0;
+  --pink-soft:#FDE7EF;
+  --pink-strong:#E85A8A;
+  --border:#F6A5C0;
+  --muted:#666;
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif;
+  background:#fff;
+  margin:0;
+}
+
+header{
+  background:var(--pink);
+  color:#fff;
+  text-align:center;
+  padding:14px;
+  font-weight:800;
+}
+
+.container{padding:14px;max-width:520px;margin:0 auto;}
+
+.card{
+  background:var(--pink-soft);
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+}
+
+h3{margin:0 0 10px;font-size:16px;}
+
+select{
+  width:100%;
+  padding:12px;
+  font-size:18px;
+  border-radius:12px;
+  border:2px solid var(--border);
+  font-weight:800;
+}
+
+.btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.course-btn{
+  flex:1 1 30%;
+  padding:14px 10px;
+  border-radius:12px;
+  border:2px solid var(--border);
+  background:#fff;
+  color:var(--pink);
+  font-weight:800;
+  font-size:14px;
+}
+
+.course-btn.active{
+  background:var(--pink);
+  color:#fff;
+}
+
+.result{text-align:center;}
+.label{color:var(--muted);font-size:14px;}
+.value{font-size:34px;color:var(--pink-strong);font-weight:900;}
+.value.small{font-size:30px;}
+
+.primary{
+  width:100%;
+  border:none;
+  border-radius:14px;
+  padding:14px;
+  font-size:17px;
+  font-weight:900;
+  background:var(--pink);
+  color:#fff;
+}
+
+.list{background:#fff;border-radius:14px;padding:10px;border:2px solid #f3b7cc;}
+
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;
+  gap:6px;
+  padding:6px;
+  font-size:13px;
+  border-bottom:1px solid #eee;
+}
+
+.row.head{font-weight:900;color:#666;}
+.cell.back{color:var(--pink-strong);font-weight:900;}
+
+.sticky{
+  background:var(--pink-soft);
+  border:2px solid #f3b7cc;
+  border-radius:14px;
+  padding:10px;
+  margin-top:10px;
+  font-weight:900;
+}
+</style>
+</head>
+
+<body>
+<header>
+癒し待夢<br>
+<small>給料計算（井川バージョン）</small>
+</header>
+
+<div class="container">
+
+<!-- ① お客さん金額 -->
+<div class="card">
+  <h3>お客さん金額</h3>
+  <select id="price">
+    <option value="0">選択してください</option>
+  </select>
+</div>
+
+<!-- ② コース -->
+<div class="card">
+  <h3>コース</h3>
+  <div class="btn-row">
+    <button class="course-btn" data-course="90">90分</button>
+    <button class="course-btn" data-course="120">120分</button>
+    <button class="course-btn" data-course="150">150分</button>
+    <button class="course-btn" data-course="ext30">延長30分</button>
+    <button class="course-btn" data-course="ext60">延長60分</button>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="card result">
+  <div class="label">今回のバック</div>
+  <div class="value" id="back">¥ 0</div>
+
+  <div style="height:10px;"></div>
+
+  <div class="label">今回の店落ち</div>
+  <div class="value small" id="shop">¥ 0</div>
+</div>
+
+<button class="primary" id="addBtn">この内容を追加</button>
+
+<!-- 履歴 -->
+<div class="card">
+  <h3>今日の履歴</h3>
+  <div class="list" id="listArea"></div>
+  <div class="sticky" id="totalArea"></div>
+</div>
+
+</div>
+
+<script>
+// ===== 井川バージョン：バックルール =====
+function getBack(course){
+  if(course === "90") return 9000;
+  if(course === "120") return 11000;
+  if(course === "150") return 13000;
+  if(course === "ext30") return 3000;
+  if(course === "ext60") return 6000;
+  return 0;
+}
+
+// ===== 金額プルダウン生成 =====
+const priceSelect = document.getElementById("price");
+
+// 追加分
+[0, 5000, 10000].forEach(p=>{
+  const o = document.createElement("option");
+  o.value = p;
+  o.textContent = (p === 0 ? "カード決済（0円）" : p);
+  priceSelect.appendChild(o);
+});
+
+// 通常分 12000〜30000
+for(let p = 12000; p <= 30000; p += 1000){
+  const o = document.createElement("option");
+  o.value = p;
+  o.textContent = p;
+  priceSelect.appendChild(o);
+}
+
+// ===== 状態 =====
+let selectedCourse = "";
+
+// コースボタン処理
+document.querySelectorAll(".course-btn").forEach(btn => {
+  btn.addEventListener("click", function(){
+    selectedCourse = this.dataset.course;
+
+    document.querySelectorAll(".course-btn").forEach(b=>{
+      b.classList.remove("active");
+    });
+    this.classList.add("active");
+
+    calculate();
+  });
+});
+
+// 金額変更時
+priceSelect.addEventListener("change", calculate);
+
+// ===== 計算 =====
+function calculate(){
+  const price = Number(priceSelect.value || 0);
+  const back = getBack(selectedCourse);
+  const shop = price - back;
+
+  document.getElementById("back").textContent = `¥ ${back.toLocaleString()}`;
+  document.getElementById("shop").textContent = `¥ ${shop.toLocaleString()}`;
+}
+
+// ===== 保存（今日分だけ） =====
+function load(){
+  const raw = localStorage.getItem("iyashimayu_igawa_today");
+  return raw ? JSON.parse(raw) : [];
+}
+function save(r){
+  localStorage.setItem("iyashimayu_igawa_today", JSON.stringify(r));
+}
+
+// 追加ボタン
+document.getElementById("addBtn").addEventListener("click", function(){
+  if(!selectedCourse){
+    alert("コースを選択してください");
+    return;
+  }
+
+  const price = Number(priceSelect.value || 0);
+  const back = getBack(selectedCourse);
+  const shop = price - back;
+
+  const rec = { course: selectedCourse, price, back, shop };
+  const data = load();
+  data.push(rec);
+  save(data);
+  render();
+});
+
+// ===== 表示 =====
+function render(){
+  const list = document.getElementById("listArea");
+  const total = document.getElementById("totalArea");
+  const data = load();
+
+  if(data.length === 0){
+    list.innerHTML = "<div style='text-align:center;color:#666;'>履歴なし</div>";
+  }else{
+    let html = `<div class="row head">
+      <div>コース</div><div></div><div>金額</div><div>バック</div><div>店落ち</div><div></div>
+    </div>`;
+    data.forEach((r,i)=>{
+      html += `<div class="row">
+        <div>${r.course}</div>
+        <div></div>
+        <div>${r.price}</div>
+        <div class="cell back">${r.back}</div>
+        <div>${r.shop}</div>
+        <button onclick="del(${i})">🗑</button>
+      </div>`;
+    });
+    list.innerHTML = html;
+  }
+
+  const count = data.length;
+  const sumBack = data.reduce((s,r)=>s+r.back,0);
+  const sumShop = data.reduce((s,r)=>s+r.shop,0);
+
+  total.innerHTML = `
+    本数：${count} 本<br>
+    バック合計：¥ ${sumBack.toLocaleString()}<br>
+    店落ち合計：¥ ${sumShop.toLocaleString()}
+  `;
+}
+
+function del(i){
+  const d = load();
+  d.splice(i,1);
+  save(d);
+  render();
+}
+
+// 初期表示
+render();
+calculate();
+</script>
+
+</body>
+</html>
