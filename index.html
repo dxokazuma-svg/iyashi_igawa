@@ -134,6 +134,7 @@ select{
     <button class="course-btn" data-course="90">90分</button>
     <button class="course-btn" data-course="120">120分</button>
     <button class="course-btn" data-course="150">150分</button>
+    <button class="course-btn" data-course="180">180分</button>
     <button class="course-btn" data-course="ext30">延長30分</button>
     <button class="course-btn" data-course="ext60">延長60分</button>
   </div>
@@ -167,6 +168,7 @@ function getBack(course){
   if(course === "90") return 9000;
   if(course === "120") return 11000;
   if(course === "150") return 13000;
+  if(course === "180") return 16000;
   if(course === "ext30") return 3000;
   if(course === "ext60") return 6000;
   return 0;
@@ -180,6 +182,13 @@ const zero = document.createElement("option");
 zero.value = 0;
 zero.textContent = "カード決済（0円）";
 priceSelect.appendChild(zero);
+// 追加：5000円と10000円
+[5000, 10000].forEach(p => {
+  const o = document.createElement("option");
+  o.value = p;
+  o.textContent = p;
+  priceSelect.appendChild(o);
+});
 
 // 通常分 12000〜100000（1000円刻み）
 for(let p = 12000; p <= 100000; p += 1000){
